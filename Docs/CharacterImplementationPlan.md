@@ -114,7 +114,7 @@ bUseNetworkPredictionBackend=true
 ### 3.1 Component Map
 
 ```
-ANetsperCharacterPawn (APawn)
+ANPCharacterPawn (APawn)
 │
 ├── UCapsuleComponent                     ← Root, physics collision
 ├── USkeletalMeshComponent                ← Full-body mesh (third-person / shadow)
@@ -124,45 +124,45 @@ ANetsperCharacterPawn (APawn)
 ├── UCameraComponent                      ← Player view
 │
 ├── UMoverComponent                       ← Movement simulation driver (NPP backend)
-│   ├── UNetsperGroundMovementMode        ← Walk / Sprint / Crouch
-│   ├── UNetsperAirMovementMode           ← Falling, air control
-│   ├── UNetsperSlideMode                 ← Momentum slide
-│   ├── UNetsperWallRunMode               ← Side-wall traversal
-│   ├── UNetsperWallClimbMode             ← Short vertical climb
-│   └── UNetsperMantleMode                ← Ledge mantle
+│   ├── UNPGroundMovementMode             ← Walk / Sprint / Crouch
+│   ├── UNPAirMovementMode                ← Falling, air control
+│   ├── UNPSlideMode                      ← Momentum slide
+│   ├── UNPWallRunMode                    ← Side-wall traversal
+│   ├── UNPWallClimbMode                  ← Short vertical climb
+│   └── UNPMantleMode                     ← Ledge mantle
 │
-├── UNetsperMovementInputComponent        ← Translates Enhanced Input → MoverInputCmd
-├── UNetsperStaminaComponent              ← SP resource, NPP-aware tick
-├── UNetsperAbilityComponent              ← Custom ability system, own NPP simulation
-├── UNetsperHealthComponent               ← HP, damage, death (standard replication)
-├── UNetsperWeaponComponent               ← Weapon slot management
-└── UNetsperCameraComponent               ← Camera FX (tilt, FOV, shake)
+├── UNPMovementInputComponent             ← Translates Enhanced Input → MoverInputCmd
+├── UNPStaminaComponent                   ← SP resource, NPP-aware tick
+├── UNPAbilityComponent                   ← Custom ability system, own NPP simulation
+├── UNPHealthComponent                    ← HP, damage, death (standard replication)
+├── UNPWeaponComponent                    ← Weapon slot management
+└── UNPCameraComponent                    ← Camera FX (tilt, FOV, shake)
 ```
 
 ### 3.2 Data-Flow per Tick
 
 ```
 Enhanced Input
-      │
-      ▼
-UNetsperMovementInputComponent
-  · ProduceInput() fills FNetsperMoverInputCmd
-  · Queues ability activations → UNetsperAbilityComponent
-      │
-      ▼
+       │
+       ▼
+UNPMovementInputComponent
+  · ProduceInput() fills FNPMoverInputCmd
+  · Queues ability activations → UNPAbilityComponent
+       │
+       ▼
 UMoverComponent (NPP Backend)
   · Client predicts locally
   · Server simulates authoritatively
   · Server sends corrections → client reconciles
-      │
-      ├── Reads FNetsperMoverInputCmd each tick
-      ├── Queries UNetsperStaminaComponent via blackboard token
-      └── Dispatches to active UBaseMovementMode subclass
-              │
-              └── SimulationTick() → FMoverTickEndData
-                    (position, velocity, orientation, mode transitions)
+       │
+       ├── Reads FNPMoverInputCmd each tick
+       ├── Queries UNPStaminaComponent via blackboard token
+       └── Dispatches to active UBaseMovementMode subclass
+               │
+               └── SimulationTick() → FMoverTickEndData
+                     (position, velocity, orientation, mode transitions)
 
-UNetsperAbilityComponent (separate NPP sim)
+UNPAbilityComponent (separate NPP sim)
   · Client predicts ability activation / cooldown
   · Server authoritative for cooldown enforcement
   · Ability effects that touch movement inject FLayeredMove into UMoverComponent
@@ -171,7 +171,7 @@ UNetsperAbilityComponent (separate NPP sim)
 ### 3.3 Key Design Principles
 
 - **Components own their state.** No monolithic character class holding all variables.
-- **Interfaces decouple systems.** Movement modes query SP through `INetsperStaminaProvider`, not a hard reference.
+- **Interfaces decouple systems.** Movement modes query SP through `INPStaminaProvider`, not a hard reference.
 - **Layered Moves bridge systems.** Abilities that affect movement (Grapple, Flight) inject `FLayeredMoveBase` subclasses into `UMoverComponent` rather than directly setting velocity.
 - **All predicted state is in structs.** NPP and Mover require state to be in registered structs — no bare UPROPERTY on components for anything that is predicted.
 - **Cues carry events.** Landing stagger, ability activations, wall-run start/end are broadcast as NPP Cues so VFX/SFX/animation can react without polling.
@@ -186,63 +186,63 @@ Source/Netsper/
 ├── Netsper.h / Netsper.cpp
 │
 ├── Character/
-│   ├── NetsperCharacterPawn.h
-│   └── NetsperCharacterPawn.cpp
+│   ├── NPCharacterPawn.h
+│   └── NPCharacterPawn.cpp
 │
 ├── Input/
-│   ├── NetsperMovementInputComponent.h
-│   └── NetsperMovementInputComponent.cpp
+│   ├── NPMovementInputComponent.h
+│   └── NPMovementInputComponent.cpp
 │
 ├── Movement/
-│   ├── NetsperMoverTypes.h              ← Shared structs: FNetsperMoverInputCmd, FNetsperMoverSyncState
+│   ├── NPMoverTypes.h                   ← Shared structs: FNPMoverInputCmd, FNPMoverSyncState
 │   │
 │   ├── Modes/
-│   │   ├── NetsperGroundMovementMode.h / .cpp
-│   │   ├── NetsperAirMovementMode.h    / .cpp
-│   │   ├── NetsperSlideMode.h          / .cpp
-│   │   ├── NetsperWallRunMode.h        / .cpp
-│   │   ├── NetsperWallClimbMode.h      / .cpp
-│   │   └── NetsperMantleMode.h         / .cpp
+│   │   ├── NPGroundMovementMode.h / .cpp
+│   │   ├── NPAirMovementMode.h    / .cpp
+│   │   ├── NPSlideMode.h          / .cpp
+│   │   ├── NPWallRunMode.h        / .cpp
+│   │   ├── NPWallClimbMode.h      / .cpp
+│   │   └── NPMantleMode.h         / .cpp
 │   │
 │   └── LayeredMoves/
-│       ├── NetsperDodgeLayeredMove.h   / .cpp
-│       ├── NetsperJumpLayeredMove.h    / .cpp
-│       └── NetsperLandingRollLayeredMove.h / .cpp
+│       ├── NPDodgeLayeredMove.h   / .cpp
+│       ├── NPJumpLayeredMove.h    / .cpp
+│       └── NPLandingRollLayeredMove.h / .cpp
 │
 ├── Stamina/
-│   ├── NetsperStaminaComponent.h       / .cpp
-│   ├── NetsperStaminaTypes.h           ← FNetsperStaminaSyncState
-│   └── NetsperStaminaInterface.h       ← INetsperStaminaProvider (pure interface)
+│   ├── NPStaminaComponent.h       / .cpp
+│   ├── NPStaminaTypes.h           ← FNPStaminaSyncState
+│   └── NPStaminaInterface.h       ← INPStaminaProvider (pure interface)
 │
 ├── Abilities/
-│   ├── NetsperAbilityComponent.h       / .cpp
-│   ├── NetsperAbilityTypes.h           ← FAbilityInputCmd, FAbilitySyncState, FAbilityAuxState
-│   ├── NetsperAbilityBase.h            / .cpp
+│   ├── NPAbilityComponent.h       / .cpp
+│   ├── NPAbilityTypes.h           ← FAbilityInputCmd, FAbilitySyncState, FAbilityAuxState
+│   ├── NPAbilityBase.h            / .cpp
 │   └── Impl/
-│       ├── NetsperGrappleAbility.h     / .cpp
-│       ├── NetsperShieldAbility.h      / .cpp
-│       ├── NetsperWallAbility.h        / .cpp
-│       ├── NetsperFlightAbility.h      / .cpp
-│       └── NetsperInvisibilityAbility.h/ .cpp
+│       ├── NPGrappleAbility.h     / .cpp
+│       ├── NPShieldAbility.h      / .cpp
+│       ├── NPWallAbility.h        / .cpp
+│       ├── NPFlightAbility.h      / .cpp
+│       └── NPInvisibilityAbility.h/ .cpp
 │
 ├── Health/
-│   ├── NetsperHealthComponent.h        / .cpp
-│   └── NetsperDamageInterface.h        ← INetsperDamageable
+│   ├── NPHealthComponent.h        / .cpp
+│   └── NPDamageInterface.h        ← INPDamageable
 │
 ├── Weapons/
-│   ├── NetsperWeaponComponent.h        / .cpp
-│   └── NetsperWeaponBase.h             / .cpp
+│   ├── NPWeaponComponent.h        / .cpp
+│   └── NPWeaponBase.h             / .cpp
 │
 └── Camera/
-    ├── NetsperCameraComponent.h        / .cpp
-    └── NetsperCameraTypes.h            ← FCameraShakeParams, etc.
+    ├── NPCameraComponent.h        / .cpp
+    └── NPCameraTypes.h            ← FCameraShakeParams, etc.
 ```
 
 ---
 
 ## 5. Phase 1 — Core Pawn
 
-### 5.1 `ANetsperCharacterPawn`
+### 5.1 `ANPCharacterPawn`
 
 **Inherits:** `APawn`, `IMoverInputProducerInterface`
 
@@ -250,9 +250,9 @@ The pawn is intentionally thin. It owns the component hierarchy and wires them t
 
 #### Key Responsibilities
 - Create and attach all components at construction
-- Implement `ProduceInput(int32 SimTimeMs, FMoverInputCmdContext&)` — delegates to `UNetsperMovementInputComponent`
+- Implement `ProduceInput(int32 SimTimeMs, FMoverInputCmdContext&)` — delegates to `UNPMovementInputComponent`
 - Expose `GetMoverComponent()`, `GetStaminaComponent()`, etc. for Blueprint access
-- Handle `SetupPlayerInputComponent` — delegates to `UNetsperMovementInputComponent`
+- Handle `SetupPlayerInputComponent` — delegates to `UNPMovementInputComponent`
 - Manage `GetPawnViewLocation()` / `GetViewRotation()` for correct camera transforms
 
 #### Member Layout
@@ -277,22 +277,22 @@ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
 TObjectPtr<UMoverComponent> MoverComponent;
 
 UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
-TObjectPtr<UNetsperMovementInputComponent> MovementInputComponent;
+TObjectPtr<UNPMovementInputComponent> MovementInputComponent;
 
 UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Gameplay")
-TObjectPtr<UNetsperStaminaComponent> StaminaComponent;
+TObjectPtr<UNPStaminaComponent> StaminaComponent;
 
 UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Gameplay")
-TObjectPtr<UNetsperAbilityComponent> AbilityComponent;
+TObjectPtr<UNPAbilityComponent> AbilityComponent;
 
 UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Gameplay")
-TObjectPtr<UNetsperHealthComponent> HealthComponent;
+TObjectPtr<UNPHealthComponent> HealthComponent;
 
 UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat")
-TObjectPtr<UNetsperWeaponComponent> WeaponComponent;
+TObjectPtr<UNPWeaponComponent> WeaponComponent;
 
 UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Camera")
-TObjectPtr<UNetsperCameraComponent> CameraEffectsComponent;
+TObjectPtr<UNPCameraComponent> CameraEffectsComponent;
 ```
 
 #### Capsule & Mesh Setup
@@ -307,17 +307,17 @@ Camera: attached to boom end; no lag (competitive FPS requires zero lag)
 
 #### Crouch Height Change
 
-Capsule height reduced from 96 to 60 cm when crouching. The mesh offset adjusts in `UNetsperGroundMovementMode::SimulationTick` to keep feet planted. Height change is stored in the Mover sync state (not a raw UPROPERTY) to ensure network prediction.
+Capsule height reduced from 96 to 60 cm when crouching. The mesh offset adjusts in `UNPGroundMovementMode::SimulationTick` to keep feet planted. Height change is stored in the Mover sync state (not a raw UPROPERTY) to ensure network prediction.
 
 ---
 
 ## 6. Phase 2 — Input System
 
-### 6.1 `UNetsperMovementInputComponent`
+### 6.1 `UNPMovementInputComponent`
 
 **Inherits:** `UActorComponent`
 
-Bridges the Enhanced Input system to Mover's `FNetsperMoverInputCmd` each simulation tick.
+Bridges the Enhanced Input system to Mover's `FNPMoverInputCmd` each simulation tick.
 
 #### Rationale for a Dedicated Input Component
 
@@ -345,13 +345,13 @@ Mover requires input to be produced inside `ProduceInput()`, which is called fro
 - `IMC_Ability` — layered on top, for ability-specific bindings
 - `IMC_Vehicle` — reserved for future vehicle states
 
-#### `FNetsperMoverInputCmd` (Mover Input Struct)
+#### `FNPMoverInputCmd` (Mover Input Struct)
 
 This struct is what Mover consumes each tick. It must implement `NetSerialize` for NPP.
 
 ```cpp
 USTRUCT()
-struct FNetsperMoverInputCmd
+struct FNPMoverInputCmd
 {
     GENERATED_BODY()
 
@@ -378,11 +378,11 @@ struct FNetsperMoverInputCmd
 
 ```
 EnhancedInput callbacks accumulate state into a frame-local cache:
-  FNetsperRawInputCache { MoveAxis, LookDelta, bJumpPressed, bSprintHeld, ... }
+  FNPRawInputCache { MoveAxis, LookDelta, bJumpPressed, bSprintHeld, ... }
 
-ANetsperCharacterPawn::ProduceInput(SimTimeMs, Context)
-  → calls UNetsperMovementInputComponent::BuildInputCmd(cache)
-  → writes FNetsperMoverInputCmd into Context
+ANPCharacterPawn::ProduceInput(SimTimeMs, Context)
+  → calls UNPMovementInputComponent::BuildInputCmd(cache)
+  → writes FNPMoverInputCmd into Context
   → clears one-shot flags (jump, dodge) from cache
 ```
 
@@ -404,13 +404,13 @@ Mover processes movement in a pipeline:
 
 All movement modes are registered on `UMoverComponent` as sub-objects and referenced by name. Mode transitions are handled via `FMoverTransitionBase` subclasses registered alongside the modes.
 
-### `FNetsperMoverSyncState`
+### `FNPMoverSyncState`
 
 Extended sync state that carries Netsper-specific per-tick data inside Mover's simulation.
 
 ```cpp
 USTRUCT()
-struct FNetsperMoverSyncState : public FMoverDefaultSyncState
+struct FNPMoverSyncState : public FMoverDefaultSyncState
 {
     GENERATED_BODY()
 
@@ -431,11 +431,11 @@ struct FNetsperMoverSyncState : public FMoverDefaultSyncState
 };
 ```
 
-> **Design note:** SP is mirrored into the Mover sync state so movement modes can read/consume SP during prediction without needing to cross-simulation boundaries. The canonical SP value lives in `UNetsperStaminaComponent`; after each tick, the two are reconciled.
+> **Design note:** SP is mirrored into the Mover sync state so movement modes can read/consume SP during prediction without needing to cross-simulation boundaries. The canonical SP value lives in `UNPStaminaComponent`; after each tick, the two are reconciled.
 
 ---
 
-### 7.1 `UNetsperGroundMovementMode`
+### 7.1 `UNPGroundMovementMode`
 
 **Inherits:** `UBaseMovementMode`
 
@@ -453,7 +453,7 @@ Handles all grounded states: walking, sprinting, and crouching. Sprinting and cr
 #### `SimulationTick` Logic
 
 ```
-1. Read FNetsperMoverInputCmd from context
+1. Read FNPMoverInputCmd from context
 2. Determine desired sub-state:
    a. bSprintHeld AND CurrentSP > 0 → Sprint sub-state
    b. bCrouchHeld → Crouch sub-state (also initiates slide if speed > SlideEntryThreshold)
@@ -468,7 +468,7 @@ Handles all grounded states: walking, sprinting, and crouching. Sprinting and cr
    Friction coefficient applied on top
 5. Consume SP if sprinting:
    SprintSPCostPerSecond = 15 SP/s
-   Write back to FNetsperMoverSyncState.CurrentSP
+   Write back to FNPMoverSyncState.CurrentSP
 6. Handle capsule height change for crouch:
    Lerp capsule half-height to 30 cm (crouching)
 7. Check transition conditions:
@@ -487,7 +487,7 @@ Handles all grounded states: walking, sprinting, and crouching. Sprinting and cr
 
 ---
 
-### 7.2 `UNetsperAirMovementMode`
+### 7.2 `UNPAirMovementMode`
 
 **Inherits:** `UBaseMovementMode`
 
@@ -519,7 +519,7 @@ float JumpHoldMaxDuration  = 0.25f;   // max seconds of jump-hold benefit
 6. Landing detection: trace downward; if hit within landing threshold:
    Emit Cue.Movement.Landed(impactSpeed)
    if impactSpeed > StaggerThreshold AND no roll input → apply stagger
-   if roll input detected → queue FNetsperLandingRollLayeredMove
+   if roll input detected → queue FNPLandingRollLayeredMove
    → request transition to GroundMovementMode
 7. Wallrun entry check: left/right velocity component, near wall → WallRunMode
 8. WallClimb entry check: forward velocity, facing wall → WallClimbMode
@@ -527,11 +527,11 @@ float JumpHoldMaxDuration  = 0.25f;   // max seconds of jump-hold benefit
 
 #### Air Dodge
 
-Air dodge is a `FNetsperDodgeLayeredMove` queued when `bDodgePressed` is true in air. It is identical to ground dodge except the directional bias is purely horizontal and there is no ground friction.
+Air dodge is a `FNPDodgeLayeredMove` queued when `bDodgePressed` is true in air. It is identical to ground dodge except the directional bias is purely horizontal and there is no ground friction.
 
 ---
 
-### 7.3 `UNetsperSlideMode`
+### 7.3 `UNPSlideMode`
 
 **Inherits:** `UBaseMovementMode`
 
@@ -566,7 +566,7 @@ A transitional mode entered from ground movement when sprint-crouching above the
 
 ---
 
-### 7.4 `UNetsperWallRunMode`
+### 7.4 `UNPWallRunMode`
 
 **Inherits:** `UBaseMovementMode`
 
@@ -597,13 +597,13 @@ A left and right capsule side trace (offset 45 cm) determines which side the wal
 4. Apply slight downward drift proportional to ModeElapsedTime:
    WallRunGravityDrift = 150 * (ModeElapsedTime / WallRunMaxDuration) cm/s²
    This creates a natural arc that limits duration without a hard cutoff
-5. Camera tilt: write tilt target to blackboard for UNetsperCameraComponent
+5. Camera tilt: write tilt target to blackboard for UNPCameraComponent
    LeftWall: +12° roll  RightWall: -12°  (smoothed on camera side)
 6. Continuous wall trace to confirm wall still present:
    If trace fails → exit to AirMovementMode with exit velocity preserved
 7. Exit conditions:
    a. Wall no longer traced → AirMovementMode
-   b. bJumpPressed → FNetsperJumpLayeredMove (wall jump variant)
+   b. bJumpPressed → FNPJumpLayeredMove (wall jump variant)
       Wall jump: push away from wall normal + upward
    c. Speed drops below WallRunMinContinueSpeed → AirMovementMode
    d. Reached top of wall → WallClimbMode (if bSprintHeld)
@@ -617,7 +617,7 @@ A left and right capsule side trace (offset 45 cm) determines which side the wal
 
 ---
 
-### 7.5 `UNetsperWallClimbMode`
+### 7.5 `UNPWallClimbMode`
 
 **Inherits:** `UBaseMovementMode`
 
@@ -649,7 +649,7 @@ Short vertical climbs inspired by Apex Legends' wall-climb. Distinct from wall-r
 
 ---
 
-### 7.6 `UNetsperMantleMode`
+### 7.6 `UNPMantleMode`
 
 **Inherits:** `UBaseMovementMode`
 
@@ -695,7 +695,7 @@ Behaviour: skip the animation phases entirely
 
 Layered moves are short-duration movement overrides that blend with or replace the active mode's output.
 
-#### `FNetsperDodgeLayeredMove`
+#### `FNPDodgeLayeredMove`
 
 **Purpose:** Quick directional dash (ground or air).
 
@@ -706,14 +706,14 @@ Input: dodge direction = normalise(MoveInput) or camera-forward if no input
 VelocityBoost: 1200 cm/s in dodge direction
 Friction: 0 during dodge
 Exit: duration elapsed; blends out velocity over 0.05s
-Cooldown: tracked in FNetsperMoverSyncState; dodge unavailable while SP < DodgeCost
+Cooldown: tracked in FNPMoverSyncState; dodge unavailable while SP < DodgeCost
 ```
 
 Air dodge rules:
 - Limited to 1 air dodge per airborne phase
 - Resets on landing
 
-#### `FNetsperJumpLayeredMove`
+#### `FNPJumpLayeredMove`
 
 **Purpose:** Handles the jump impulse for all jump variants (ground, wall-jump, wall-run jump).
 
@@ -727,7 +727,7 @@ Duration: 1 tick (impulse applied once)
 Cues: Cue.Movement.Jumped(Variant)
 ```
 
-#### `FNetsperLandingRollLayeredMove`
+#### `FNPLandingRollLayeredMove`
 
 **Purpose:** Convert hard-landing downward velocity into forward momentum; prevent stagger.
 
@@ -742,7 +742,7 @@ On activation:
   Duration: 0.35s (roll animation length)
 
 If not rolled (hard landing above threshold):
-  Apply stagger: FNetsperMoverSyncState.StaggerTimeRemaining = 0.4s
+  Apply stagger: FNPMoverSyncState.StaggerTimeRemaining = 0.4s
   Cue.Movement.LandingStagger(impactSpeed)
 ```
 
@@ -750,11 +750,11 @@ If not rolled (hard landing above threshold):
 
 ## 8. Phase 4 — Stamina Component (SP)
 
-### `UNetsperStaminaComponent`
+### `UNPStaminaComponent`
 
 **Inherits:** `UActorComponent`
 
-SP (Stamina Points) is the resource governing advanced movement and ability usage. The component maintains the canonical SP value and provides the `INetsperStaminaProvider` interface consumed by movement modes and the ability component.
+SP (Stamina Points) is the resource governing advanced movement and ability usage. The component maintains the canonical SP value and provides the `INPStaminaProvider` interface consumed by movement modes and the ability component.
 
 #### Why not inside Mover's sync state directly?
 
@@ -763,13 +763,13 @@ Mover's sync state carries a *mirror* of SP for in-prediction queries, but the c
 - Support regen logic that runs outside the Mover simulation tick
 - Keep Mover's sync state lean
 
-#### `FNetsperStaminaSyncState`
+#### `FNPStaminaSyncState`
 
 Used for the NPP-predicted SP mirror only (written by Mover, read by modes):
 
 ```cpp
 USTRUCT()
-struct FNetsperStaminaSyncState
+struct FNPStaminaSyncState
 {
     GENERATED_BODY()
     UPROPERTY() float CurrentSP = 100.f;
@@ -780,10 +780,10 @@ struct FNetsperStaminaSyncState
 };
 ```
 
-#### `INetsperStaminaProvider` Interface
+#### `INPStaminaProvider` Interface
 
 ```cpp
-class INetsperStaminaProvider
+class INPStaminaProvider
 {
 public:
     virtual float GetCurrentSP() const = 0;
@@ -843,11 +843,11 @@ OnRep_CurrentSP: broadcast delegate for UI / audio
 
 The ability component runs as a separate NPP simulation alongside Mover's simulation.
 
-#### `FAbilityInputCmd`
+#### `FNPAbilityInputCmd`
 
 ```cpp
 USTRUCT()
-struct FAbilityInputCmd
+struct FNPAbilityInputCmd
 {
     GENERATED_BODY()
 
@@ -865,11 +865,11 @@ struct FAbilityInputCmd
 };
 ```
 
-#### `FAbilitySyncState`
+#### `FNPAbilitySyncState`
 
 ```cpp
 USTRUCT()
-struct FAbilitySyncState
+struct FNPAbilitySyncState
 {
     GENERATED_BODY()
 
@@ -893,13 +893,13 @@ struct FAbilitySyncState
 };
 ```
 
-#### `FAbilityAuxState`
+#### `FNPAbilityAuxState`
 
 Carries ability-specific scratch data that needs prediction (e.g., grapple target point, flight velocity contribution).
 
 ```cpp
 USTRUCT()
-struct FAbilityAuxState
+struct FNPAbilityAuxState
 {
     GENERATED_BODY()
 
@@ -917,21 +917,21 @@ struct FAbilityAuxState
 };
 ```
 
-### 9.2 `UNetsperAbilityComponent`
+### 9.2 `UNPAbilityComponent`
 
 **Inherits:** `UActorComponent` + NPP actor interface registration
 
-The component manages the NPP ability simulation and owns the active `UNetsperAbilityBase` instance.
+The component manages the NPP ability simulation and owns the active `UNPAbilityBase` instance.
 
 #### Key Members
 
 ```cpp
 // The loaded ability instance (spawned as sub-object at equip time)
-UPROPERTY() TObjectPtr<UNetsperAbilityBase> EquippedAbility;
+UPROPERTY() TObjectPtr<UNPAbilityBase> EquippedAbility;
 
 // Current ability state (canonical, server-authoritative)
 UPROPERTY(ReplicatedUsing=OnRep_AbilityState)
-FAbilitySyncState ReplicatedState;
+FNPAbilitySyncState ReplicatedState;
 
 // NPP proxy handle
 FNetworkPredictionProxy AbilityProxy;
@@ -940,7 +940,7 @@ FNetworkPredictionProxy AbilityProxy;
 #### Simulation Tick
 
 ```
-SimulationTick(FAbilityInputCmd, FAbilitySyncState&, FAbilityAuxState&):
+SimulationTick(FNPAbilityInputCmd, FNPAbilitySyncState&, FNPAbilityAuxState&):
 
 1. Tick cooldown: AbilityCooldownRemainingMs -= DeltaMs (clamp to 0)
 2. Tick active duration: AbilityDurationRemainingMs -= DeltaMs (clamp to 0)
@@ -965,13 +965,13 @@ Abilities that need to influence movement do so by calling `UMoverComponent::Que
 - The ability simulation is ordered before Mover's simulation via `TickPrerequisites`
 - Layered moves are consumed by Mover in the same tick they are queued
 
-### 9.3 `UNetsperAbilityBase`
+### 9.3 `UNPAbilityBase`
 
 Abstract base class for all ability implementations.
 
 ```cpp
 UCLASS(Abstract, EditInlineNew)
-class UNetsperAbilityBase : public UObject
+class UNPAbilityBase : public UObject
 {
 public:
     // Intrinsic ability properties
@@ -981,24 +981,24 @@ public:
     virtual int32 GetDurationMs() const { return 0; }   // 0 = instant
 
     // Simulation callbacks (called from within NPP simulation tick)
-    virtual void OnActivated(const FAbilityInputCmd&, FAbilitySyncState&,
-                             FAbilityAuxState&, UMoverComponent*) {}
-    virtual void OnTick(int32 DeltaMs, FAbilitySyncState&,
-                        FAbilityAuxState&, UMoverComponent*) {}
-    virtual void OnDeactivated(FAbilitySyncState&, FAbilityAuxState&) {}
+    virtual void OnActivated(const FNPAbilityInputCmd&, FNPAbilitySyncState&,
+                             FNPAbilityAuxState&, UMoverComponent*) {}
+    virtual void OnTick(int32 DeltaMs, FNPAbilitySyncState&,
+                        FNPAbilityAuxState&, UMoverComponent*) {}
+    virtual void OnDeactivated(FNPAbilitySyncState&, FNPAbilityAuxState&) {}
 
     // Server-only: spawn/despawn world actors (shields, walls)
-    virtual void OnActivatedAuthority(AActor* Owner, const FAbilityInputCmd&) {}
+    virtual void OnActivatedAuthority(AActor* Owner, const FNPAbilityInputCmd&) {}
     virtual void OnDeactivatedAuthority(AActor* Owner) {}
 
     // Cue emission helper
-    void EmitCue(FGameplayTag CueTag, const FAbilityInputCmd& Context);
+    void EmitCue(FGameplayTag CueTag, const FNPAbilityInputCmd& Context);
 };
 ```
 
 ### 9.4 Concrete Ability Implementations
 
-#### `UNetsperGrappleAbility`
+#### `UNPGrappleAbility`
 
 ```
 Tag:      Ability.Grapple
@@ -1010,7 +1010,7 @@ OnActivated:
   Line trace from camera in look direction, MaxRange = 2000 cm
   If hit: record GrappleHookPoint in AuxState
           bGrappleHookAttached = true
-          Queue FNetsperGrappleLayeredMove on MoverComponent
+          Queue FNPGrappleLayeredMove on MoverComponent
             The layered move computes pull force each tick toward GrappleHookPoint
             Damping at arrival
   If miss: instant fail, no cooldown triggered (or short 1s penalty)
@@ -1027,7 +1027,7 @@ Inspired by Apex Legends: shorter range, good for repositioning,
 does not halt horizontal momentum — adds to it.
 ```
 
-#### `UNetsperShieldAbility`
+#### `UNPShieldAbility`
 
 ```
 Tag:      Ability.Shield
@@ -1047,7 +1047,7 @@ OnDeactivatedAuthority:
   Destroy AShieldActor
 ```
 
-#### `UNetsperWallAbility`
+#### `UNPWallAbility`
 
 ```
 Tag:      Ability.Wall
@@ -1064,7 +1064,7 @@ OnActivatedAuthority:
 OnDeactivated: AWallActor lifespan auto-expires or is destroyed
 ```
 
-#### `UNetsperFlightAbility`
+#### `UNPFlightAbility`
 
 ```
 Tag:      Ability.Flight
@@ -1078,18 +1078,18 @@ OnActivated:
 OnTick:
   Consume SP at FlightDrainRate
   If SP reaches 0: force deactivate
-  Inject FNetsperFlightLayeredMove into MoverComponent:
+  Inject FNPFlightLayeredMove into MoverComponent:
     Overrides gravity
     Allows 6DoF directional flight based on camera orientation
     MaxFlightSpeed = 900 cm/s
     Acceleration = 1800 cm/s²
 
 OnDeactivated:
-  Remove FNetsperFlightLayeredMove
+  Remove FNPFlightLayeredMove
   Player enters AirMovementMode with current velocity retained
 ```
 
-#### `UNetsperInvisibilityAbility`
+#### `UNPInvisibilityAbility`
 
 ```
 Tag:      Ability.Invisibility
@@ -1117,7 +1117,7 @@ OnDeactivated:
 
 ## 10. Phase 6 — Health Component
 
-### `UNetsperHealthComponent`
+### `UNPHealthComponent`
 
 Standard replicated health (not NPP — health mutations come from server authority, no client-side prediction needed).
 
@@ -1134,10 +1134,10 @@ FOnHealthChanged OnHealthChanged;   // broadcast delegate (C++ + Blueprint)
 FOnDeath OnDeath;                   // broadcast delegate
 ```
 
-#### Interface: `INetsperDamageable`
+#### Interface: `INPDamageable`
 
 ```cpp
-class INetsperDamageable
+class INPDamageable
 {
 public:
     virtual void ApplyDamage(float Amount, AActor* Instigator,
@@ -1155,7 +1155,7 @@ public:
 3. Broadcast OnHealthChanged
 4. If CurrentHealth <= 0:
    Broadcast OnDeath(Instigator)
-   Call ANetsperCharacterPawn::OnDeath()
+   Call ANPCharacterPawn::OnDeath()
      → Disable input
      → Trigger death animation via Cue
      → Notify game mode for respawn
@@ -1169,7 +1169,7 @@ public:
 
 ## 11. Phase 7 — Weapon Component
 
-### `UNetsperWeaponComponent`
+### `UNPWeaponComponent`
 
 Manages up to 3 weapon slots (GDD: players carry 0–3 weapons). Handles equipping, switching, and delegating fire/reload to the active weapon.
 
@@ -1178,21 +1178,21 @@ Manages up to 3 weapon slots (GDD: players carry 0–3 weapons). Handles equippi
 ```cpp
 // Max 3 slots per GDD
 UPROPERTY(ReplicatedUsing=OnRep_Weapons)
-TArray<TObjectPtr<UNetsperWeaponBase>> WeaponSlots;  // max 3
+TArray<TObjectPtr<UNPWeaponBase>> WeaponSlots;  // max 3
 
 UPROPERTY(ReplicatedUsing=OnRep_ActiveWeaponIndex)
 int32 ActiveWeaponIndex = 0;
 
-TObjectPtr<UNetsperWeaponBase> GetActiveWeapon() const;
+TObjectPtr<UNPWeaponBase> GetActiveWeapon() const;
 ```
 
-#### `UNetsperWeaponBase`
+#### `UNPWeaponBase`
 
 Abstract base for all weapons (ranged and melee). Concrete subclasses implement firing logic.
 
 ```cpp
 UCLASS(Abstract)
-class UNetsperWeaponBase : public UObject
+class UNPWeaponBase : public UObject
 {
 public:
     virtual void StartFire(const FVector& Origin, const FRotator& Direction) {}
@@ -1230,14 +1230,14 @@ Weapons use a **client-authoritative fire with server validation** approach:
 - Client fires immediately (local hitscan/projectile) for responsiveness
 - Sends `Server_Fire(Origin, Direction, Timestamp)` RPC
 - Server validates timing, position plausibility, ammo count
-- Server applies damage via `INetsperDamageable::ApplyDamage`
+- Server applies damage via `INPDamageable::ApplyDamage`
 - Discrepancies (cheating, desync) corrected by server
 
 ---
 
 ## 12. Phase 8 — Camera Component
 
-### `UNetsperCameraComponent`
+### `UNPCameraComponent`
 
 **Inherits:** `UActorComponent`
 
@@ -1279,30 +1279,30 @@ Each tick: CurrentRoll = FMath::FInterpTo(CurrentRoll, TargetRoll, DeltaTime, 8.
 ### SP Flow Between Systems
 
 ```
-UNetsperStaminaComponent (canonical SP)
+UNPStaminaComponent (canonical SP)
     │
-    ├── UNetsperGroundMovementMode: queries via INetsperStaminaProvider
-    ├── UNetsperSlideMode: queries via INetsperStaminaProvider
-    ├── FNetsperDodgeLayeredMove: deducts on activation
-    ├── FNetsperJumpLayeredMove: no SP cost
-    ├── UNetsperMantleMode: deducts on SP-boosted variant
-    └── UNetsperAbilityComponent: deducts per ability cost/rate
+    ├── UNPGroundMovementMode: queries via INPStaminaProvider
+    ├── UNPSlideMode: queries via INPStaminaProvider
+    ├── FNPDodgeLayeredMove: deducts on activation
+    ├── FNPJumpLayeredMove: no SP cost
+    ├── UNPMantleMode: deducts on SP-boosted variant
+    └── UNPAbilityComponent: deducts per ability cost/rate
 ```
 
-The mirrored SP in `FNetsperMoverSyncState.CurrentSP` is written each tick from `UNetsperStaminaComponent`'s current value before the Mover simulation runs, ensuring movement mode predictions use the correct value. After reconciliation, any delta is applied back.
+The mirrored SP in `FNPMoverSyncState.CurrentSP` is written each tick from `UNPStaminaComponent`'s current value before the Mover simulation runs, ensuring movement mode predictions use the correct value. After reconciliation, any delta is applied back.
 
 ### Ability ↔ Movement Integration
 
 ```
 Flight ability active:
-  UNetsperFlightAbility::OnTick
-    → MoverComponent->QueueLayeredMove(FNetsperFlightLayeredMove{...})
-    The FNetsperFlightLayeredMove overrides gravity and maps look direction to velocity
+  UNPFlightAbility::OnTick
+    → MoverComponent->QueueLayeredMove(FNPFlightLayeredMove{...})
+    The FNPFlightLayeredMove overrides gravity and maps look direction to velocity
 
 Grapple ability active:
-  UNetsperGrappleAbility::OnTick
-    → MoverComponent->QueueLayeredMove(FNetsperGrappleLayeredMove{hook, pullStrength})
-    The FNetsperGrappleLayeredMove adds pull force toward hook point each tick
+  UNPGrappleAbility::OnTick
+    → MoverComponent->QueueLayeredMove(FNPGrappleLayeredMove{hook, pullStrength})
+    The FNPGrappleLayeredMove adds pull force toward hook point each tick
     Compatible with all base movement modes (adds to their output)
 ```
 
@@ -1346,7 +1346,7 @@ This is implemented in a `UNetsperLagCompensationComponent` (separate from the c
 ### Replication Settings
 
 ```cpp
-// ANetsperCharacterPawn
+// ANPCharacterPawn
 bReplicates = true;
 bAlwaysRelevant = false;     // use distance-based relevancy
 NetUpdateFrequency = 60.f;
@@ -1363,26 +1363,26 @@ Implement in this sequence to always have a runnable state:
 | Step | Deliverable | Dependencies |
 |------|-------------|-------------|
 | 1 | `.uproject` plugin config, `Build.cs` update | None |
-| 2 | `ANetsperCharacterPawn` — capsule, mesh, camera, bare Mover | Step 1 |
-| 3 | `UNetsperMovementInputComponent` — basic WASD + look | Step 2 |
-| 4 | `UNetsperGroundMovementMode` — walk, sprint, crouch | Step 3 |
-| 5 | `UNetsperAirMovementMode` + jump layered move | Step 4 |
-| 6 | `UNetsperStaminaComponent` — SP resource, regen | Step 4 |
+| 2 | `ANPCharacterPawn` — capsule, mesh, camera, bare Mover | Step 1 |
+| 3 | `UNPMovementInputComponent` — basic WASD + look | Step 2 |
+| 4 | `UNPGroundMovementMode` — walk, sprint, crouch | Step 3 |
+| 5 | `UNPAirMovementMode` + jump layered move | Step 4 |
+| 6 | `UNPStaminaComponent` — SP resource, regen | Step 4 |
 | 7 | SP integration into ground mode (sprint cost) | Step 6 |
-| 8 | `UNetsperSlideMode` | Step 6 |
-| 9 | `FNetsperDodgeLayeredMove` (ground + air) | Step 6 |
-| 10 | `UNetsperWallRunMode` + wall jump | Step 5 |
-| 11 | `UNetsperWallClimbMode` | Step 10 |
-| 12 | `UNetsperMantleMode` (normal + SP-boosted) | Step 6 |
-| 13 | `FNetsperLandingRollLayeredMove` + stagger | Step 5 |
-| 14 | `UNetsperCameraComponent` — all camera modifiers | Step 4 |
-| 15 | `UNetsperHealthComponent` | Step 2 |
-| 16 | `UNetsperWeaponComponent` + `UNetsperWeaponBase` | Step 15 |
-| 17 | `UNetsperAbilityComponent` — NPP simulation scaffolding | Step 6 |
-| 18 | `UNetsperAbilityBase` + `UNetsperFlightAbility` (simplest) | Step 17 |
-| 19 | `UNetsperGrappleAbility` (requires layered move) | Step 18 |
-| 20 | `UNetsperShieldAbility`, `UNetsperWallAbility` (world actors) | Step 18 |
-| 21 | `UNetsperInvisibilityAbility` | Step 18 |
+| 8 | `UNPSlideMode` | Step 6 |
+| 9 | `FNPDodgeLayeredMove` (ground + air) | Step 6 |
+| 10 | `UNPWallRunMode` + wall jump | Step 5 |
+| 11 | `UNPWallClimbMode` | Step 10 |
+| 12 | `UNPMantleMode` (normal + SP-boosted) | Step 6 |
+| 13 | `FNPLandingRollLayeredMove` + stagger | Step 5 |
+| 14 | `UNPCameraComponent` — all camera modifiers | Step 4 |
+| 15 | `UNPHealthComponent` | Step 2 |
+| 16 | `UNPWeaponComponent` + `UNPWeaponBase` | Step 15 |
+| 17 | `UNPAbilityComponent` — NPP simulation scaffolding | Step 6 |
+| 18 | `UNPAbilityBase` + `UNPFlightAbility` (simplest) | Step 17 |
+| 19 | `UNPGrappleAbility` (requires layered move) | Step 18 |
+| 20 | `UNPShieldAbility`, `UNPWallAbility` (world actors) | Step 18 |
+| 21 | `UNPInvisibilityAbility` | Step 18 |
 | 22 | Network testing pass — verify NPP prediction correctness | All above |
 | 23 | Animation Blueprint hookup (per cue events) | Step 22 |
 
