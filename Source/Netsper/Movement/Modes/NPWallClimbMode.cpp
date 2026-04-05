@@ -69,6 +69,9 @@ void UNPWallClimbMode::SimulationTick_Implementation(const FSimulationTickParams
 		OutNPState = *StartNPState;
 	}
 
+	// Tick predicted SP (ability cost + regen)
+	NPStaminaUtils::TickSPFromComponent(OutNPState, UpdatedComponent, DeltaSeconds);
+
 	OutNPState.ModeElapsedTime += DeltaSeconds;
 
 	const FVector Location = UpdatedComponent->GetComponentLocation();

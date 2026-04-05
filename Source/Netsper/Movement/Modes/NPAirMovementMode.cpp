@@ -81,6 +81,9 @@ void UNPAirMovementMode::SimulationTick_Implementation(const FSimulationTickPara
 		OutNPState = *StartNPState;
 	}
 
+	// Tick predicted SP (ability cost + regen)
+	NPStaminaUtils::TickSPFromComponent(OutNPState, UpdatedComponent, DeltaSeconds);
+
 	OutNPState.ModeElapsedTime += DeltaSeconds;
 
 	FVector CurrentVelocity = StartSync->GetVelocity_WorldSpace();

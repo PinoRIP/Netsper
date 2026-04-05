@@ -102,6 +102,9 @@ void UNPGroundMovementMode::SimulationTick_Implementation(const FSimulationTickP
 		OutNPState = *StartNPState;
 	}
 
+	// Tick predicted SP (ability cost + regen)
+	NPStaminaUtils::TickSPFromComponent(OutNPState, UpdatedComponent, DeltaSeconds);
+
 	// Determine sub-state
 	const bool bWantsSprint = NPInput ? NPInput->bWantsSprint : false;
 	const bool bWantsCrouch = NPInput ? NPInput->bWantsCrouch : false;
@@ -115,6 +118,7 @@ void UNPGroundMovementMode::SimulationTick_Implementation(const FSimulationTickP
 	if (bWantsSprint && !bWantsCrouch && bHasStamina)
 	{
 		OutNPState.CurrentSP = FMath::Max(0.f, OutNPState.CurrentSP - SprintSPCostPerSecond * DeltaSeconds);
+		NPStaminaUtils::NotifyConsumption(OutNPState);
 	}
 
 	// Update stagger

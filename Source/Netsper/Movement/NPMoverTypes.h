@@ -118,6 +118,10 @@ struct NETSPER_API FNPMoverState : public FMoverDataStructBase
 	UPROPERTY()
 	bool bIsJumping = false;
 
+	/** Time remaining before SP starts regenerating (seconds) */
+	UPROPERTY()
+	float RegenDelayRemaining = 0.f;
+
 	// FMoverDataStructBase overrides
 	virtual FMoverDataStructBase* Clone() const override;
 	virtual bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess) override;
@@ -150,4 +154,55 @@ namespace NPMovementModeNames
 	const FName WallRun = TEXT("NPWallRun");
 	const FName WallClimb = TEXT("NPWallClimb");
 	const FName Mantle = TEXT("NPMantle");
+}
+
+class USceneComponent;
+
+// -----------------------------------------------
+// SP prediction utilities — called from movement mode SimulationTick
+// -----------------------------------------------
+
+namespace NPStaminaUtils
+{
+	/** Default regen rate (SP per second) */
+	constexpr float DefaultRegenRate = 18.f;
+
+	/** Default delay before regen starts after consumption (seconds) */
+	constexpr float DefaultRegenDelay = 1.2f;
+
+	/**
+	 * Apply pending ability SP cost and tick SP regen.
+	 * @param PendingAbilityCost - one-shot cost from abilities (already flushed from stamina component)
+	 */
+	FORCEINLINE void TickSP(FNPMoverState& State, float PendingAbilityCost, float DeltaSeconds)
+	{
+		// 1. Apply pending ability SP cost
+		if (PendingAbilityCost > 0.f)
+		{
+			State.CurrentSP = FMath::Max(0.f, State.CurrentSP - PendingAbilityCost);
+			State.RegenDelayRemaining = DefaultRegenDelay;
+		}
+
+		// 2. Regen: tick delay, then restore SP
+		if (State.RegenDelayRemaining > 0.f)
+		{
+			State.RegenDelayRemaining = FMath::Max(0.f, State.RegenDelayRemaining - DeltaSeconds);
+		}
+		else if (State.CurrentSP < State.MaxSP)
+		{
+			State.CurrentSP = FMath::Min(State.CurrentSP + DefaultRegenRate * DeltaSeconds, State.MaxSP);
+		}
+	}
+
+	/** Reset regen delay after SP consumption. Call when a mode consumes SP. */
+	FORCEINLINE void NotifyConsumption(FNPMoverState& State)
+	{
+		State.RegenDelayRemaining = DefaultRegenDelay;
+	}
+
+	/**
+	 * Convenience: flush pending ability cost from UNPStaminaComponent and tick SP.
+	 * Resolves the stamina component from UpdatedComponent's owner each call.
+	 */
+	void TickSPFromComponent(FNPMoverState& State, USceneComponent* UpdatedComponent, float DeltaSeconds);
 }

@@ -69,6 +69,9 @@ void UNPSlideMode::SimulationTick_Implementation(const FSimulationTickParams& Pa
 		OutNPState = *StartNPState;
 	}
 
+	// Tick predicted SP (ability cost + regen)
+	NPStaminaUtils::TickSPFromComponent(OutNPState, UpdatedComponent, DeltaSeconds);
+
 	OutNPState.ModeElapsedTime += DeltaSeconds;
 	OutNPState.bIsCrouching = true;
 	OutNPState.CapsuleHalfHeight = CrouchHalfHeight;
@@ -112,6 +115,7 @@ void UNPSlideMode::SimulationTick_Implementation(const FSimulationTickParams& Pa
 	{
 		EffectiveFriction *= 0.3f;
 		OutNPState.CurrentSP = FMath::Max(0.f, OutNPState.CurrentSP - ExtendedSlideSPCost * DeltaSeconds);
+		NPStaminaUtils::NotifyConsumption(OutNPState);
 	}
 
 	// Apply friction

@@ -84,6 +84,9 @@ void UNPMantleMode::SimulationTick_Implementation(const FSimulationTickParams& P
 		OutNPState = *StartNPState;
 	}
 
+	// Tick predicted SP (ability cost + regen)
+	NPStaminaUtils::TickSPFromComponent(OutNPState, UpdatedComponent, DeltaSeconds);
+
 	OutNPState.ModeElapsedTime += DeltaSeconds;
 	OutNPState.bIsCrouching = true; // Stay crouched during mantle
 	OutNPState.CapsuleHalfHeight = CrouchHalfHeight;
@@ -100,6 +103,7 @@ void UNPMantleMode::SimulationTick_Implementation(const FSimulationTickParams& P
 		{
 			// SP-boosted mantle: consume SP and launch upward
 			OutNPState.CurrentSP -= SPBoostMantleCost;
+			NPStaminaUtils::NotifyConsumption(OutNPState);
 			bIsSPBoosted = true;
 
 			FVector LaunchVel = ForwardDir * 200.f;

@@ -3,16 +3,23 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Stamina/NPStaminaInterface.h"
-#include "Stamina/NPStaminaTypes.h"
 #include "NPStaminaComponent.generated.h"
+
+class UMoverComponent;
+struct FMoverTimeStep;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnStaminaChanged, float, NewStamina, float, MaxStamina);
 
 /**
- * UNPStaminaComponent — Manages the SP (Stamina Points) resource.
+ * UNPStaminaComponent — Predicted SP bridge over Mover 2.0 sync state.
  *
- * Canonical SP value lives here. Movement modes read a mirrored copy
- * via FNPMoverState for prediction. Implements INPStaminaProvider.
+ * The authoritative predicted SP lives in FNPMoverState::CurrentSP, which is
+ * predicted and reconciled through NPP. This component:
+ *  - Reads SP from the Mover sync state for external queries (UI, abilities)
+ *  - Accumulates ability SP costs into PendingAbilitySPCost, which the input
+ *    component pipes into FNPMoverInputCmd for predicted consumption
+ *  - Fires OnStaminaChanged for UI binding
+ *  - SP regen runs inside each movement mode's SimulationTick via NPStaminaUtils::TickSP
  */
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class NETSPER_API UNPStaminaComponent : public UActorComponent, public INPStaminaProvider
@@ -37,35 +44,35 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Stamina")
 	float GetStaminaPercent() const;
 
-	/** Notify that SP was consumed (resets regen delay) */
-	void NotifyConsumption();
+	/**
+	 * Flush accumulated ability SP cost. Called by the input component
+	 * during ProduceInput to pipe into FNPMoverInputCmd::AbilitySPCost.
+	 * Returns the accumulated cost and resets to 0.
+	 */
+	float FlushPendingAbilitySPCost();
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	/** Config — kept for reference and potential future use */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stamina|Config")
 	float MaxSP = 100.f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stamina|Config")
-	float RegenRate = 18.f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stamina|Config")
-	float RegenDelay = 1.2f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stamina|Config")
-	float SprintRegenPenalty = 0.5f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stamina|Config")
-	float CombatRegenPenalty = 0.3f;
-
 private:
-	UPROPERTY(ReplicatedUsing = OnRep_CurrentSP)
-	float CurrentSP;
+	/** Read current SP from Mover sync state (returns MaxSP if Mover unavailable) */
+	float GetSPFromMoverState() const;
 
-	float RegenDelayRemaining = 0.f;
+	/** Cached reference to MoverComponent */
+	UPROPERTY()
+	TObjectPtr<UMoverComponent> CachedMoverComponent;
 
+	/** Accumulated SP cost from ability activations/drains, flushed per frame into input cmd */
+	float PendingAbilitySPCost = 0.f;
+
+	/** Last known SP value for change detection */
+	float LastBroadcastSP = -1.f;
+
+	/** Called after Mover finishes a simulation tick — fires OnStaminaChanged */
 	UFUNCTION()
-	void OnRep_CurrentSP();
+	void OnMoverPostSimulationTick(const FMoverTimeStep& TimeStep);
 };

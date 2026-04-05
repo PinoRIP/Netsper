@@ -1,4 +1,5 @@
 #include "Movement/NPMoverTypes.h"
+#include "Stamina/NPStaminaComponent.h"
 
 // -----------------------------------------------
 // FNPMoverInputCmd
@@ -73,6 +74,7 @@ bool FNPMoverState::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSucce
 	Ar << CoyoteTimeRemaining;
 	Ar << JumpHoldTimeRemaining;
 	Ar << bIsJumping;
+	Ar << RegenDelayRemaining;
 
 	bOutSuccess = true;
 	return true;
@@ -85,8 +87,8 @@ UScriptStruct* FNPMoverState::GetScriptStruct() const
 
 void FNPMoverState::ToString(FAnsiStringBuilderBase& Out) const
 {
-	Out.Appendf("NPState: SP=%.1f/%.1f Crouch=%d Stagger=%.2f",
-		CurrentSP, MaxSP, bIsCrouching, StaggerTimeRemaining);
+	Out.Appendf("NPState: SP=%.1f/%.1f Crouch=%d Stagger=%.2f Regen=%.2f",
+		CurrentSP, MaxSP, bIsCrouching, StaggerTimeRemaining, RegenDelayRemaining);
 }
 
 bool FNPMoverState::ShouldReconcile(const FMoverDataStructBase& AuthoritativeState) const
@@ -102,6 +104,10 @@ bool FNPMoverState::ShouldReconcile(const FMoverDataStructBase& AuthoritativeSta
 		return true;
 	}
 	if (FMath::Abs(StaggerTimeRemaining - AuthState.StaggerTimeRemaining) > 0.05f)
+	{
+		return true;
+	}
+	if (FMath::Abs(RegenDelayRemaining - AuthState.RegenDelayRemaining) > 0.1f)
 	{
 		return true;
 	}
@@ -121,10 +127,31 @@ void FNPMoverState::Interpolate(const FMoverDataStructBase& From, const FMoverDa
 	CapsuleHalfHeight = FMath::Lerp(FromState.CapsuleHalfHeight, ToState.CapsuleHalfHeight, Pct);
 	CoyoteTimeRemaining = FMath::Lerp(FromState.CoyoteTimeRemaining, ToState.CoyoteTimeRemaining, Pct);
 	JumpHoldTimeRemaining = FMath::Lerp(FromState.JumpHoldTimeRemaining, ToState.JumpHoldTimeRemaining, Pct);
+	RegenDelayRemaining = FMath::Lerp(FromState.RegenDelayRemaining, ToState.RegenDelayRemaining, Pct);
 
 	// Snap discrete state
 	bIsCrouching = ToState.bIsCrouching;
 	bAirDodgeUsed = ToState.bAirDodgeUsed;
 	bIsJumping = ToState.bIsJumping;
 	MovementSubState = ToState.MovementSubState;
+}
+
+// -----------------------------------------------
+// NPStaminaUtils
+// -----------------------------------------------
+
+void NPStaminaUtils::TickSPFromComponent(FNPMoverState& State, USceneComponent* UpdatedComponent, float DeltaSeconds)
+{
+	float AbilityCost = 0.f;
+	if (UpdatedComponent)
+	{
+		if (AActor* Owner = UpdatedComponent->GetOwner())
+		{
+			if (UNPStaminaComponent* Stamina = Owner->FindComponentByClass<UNPStaminaComponent>())
+			{
+				AbilityCost = Stamina->FlushPendingAbilitySPCost();
+			}
+		}
+	}
+	TickSP(State, AbilityCost, DeltaSeconds);
 }

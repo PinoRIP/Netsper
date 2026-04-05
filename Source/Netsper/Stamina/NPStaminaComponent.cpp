@@ -1,65 +1,70 @@
 #include "Stamina/NPStaminaComponent.h"
-#include "Net/UnrealNetwork.h"
+#include "MoverComponent.h"
+#include "MoverDataModelTypes.h"
+#include "Movement/NPMoverTypes.h"
 #include "Netsper.h"
 
 UNPStaminaComponent::UNPStaminaComponent()
 {
-	PrimaryComponentTick.bCanEverTick = true;
-	SetIsReplicatedByDefault(true);
-	CurrentSP = MaxSP;
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
 void UNPStaminaComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	CurrentSP = MaxSP;
-}
 
-void UNPStaminaComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// Regen logic (server-authoritative, also runs locally for responsiveness)
-	if (RegenDelayRemaining > 0.f)
+	AActor* Owner = GetOwner();
+	if (IsValid(Owner))
 	{
-		RegenDelayRemaining -= DeltaTime;
-		return;
+		CachedMoverComponent = Owner->FindComponentByClass<UMoverComponent>();
 	}
 
-	if (CurrentSP < MaxSP)
+	// Bind to Mover's post-simulation tick to broadcast SP changes for UI
+	if (CachedMoverComponent)
 	{
-		float RegenDelta = RegenRate * DeltaTime;
-		// TODO(NP): Apply SprintRegenPenalty and CombatRegenPenalty based on active state
+		CachedMoverComponent->OnPostSimulationTick.AddDynamic(this, &UNPStaminaComponent::OnMoverPostSimulationTick);
+	}
 
-		const float OldSP = CurrentSP;
-		CurrentSP = FMath::Min(CurrentSP + RegenDelta, MaxSP);
+	LastBroadcastSP = MaxSP;
+}
 
-		if (!FMath::IsNearlyEqual(OldSP, CurrentSP))
+float UNPStaminaComponent::GetSPFromMoverState() const
+{
+	if (CachedMoverComponent)
+	{
+		const FMoverSyncState& SyncState = CachedMoverComponent->GetSyncState();
+		const FNPMoverState* NPState = SyncState.SyncStateCollection.FindDataByType<FNPMoverState>();
+		if (NPState)
 		{
-			OnStaminaChanged.Broadcast(CurrentSP, MaxSP);
+			return NPState->CurrentSP;
 		}
 	}
-}
-
-void UNPStaminaComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(UNPStaminaComponent, CurrentSP);
+	return MaxSP;
 }
 
 float UNPStaminaComponent::GetCurrentSP() const
 {
-	return CurrentSP;
+	// Account for pending ability cost not yet applied by the Mover sim
+	return FMath::Max(0.f, GetSPFromMoverState() - PendingAbilitySPCost);
 }
 
 float UNPStaminaComponent::GetMaxSP() const
 {
+	if (CachedMoverComponent)
+	{
+		const FMoverSyncState& SyncState = CachedMoverComponent->GetSyncState();
+		const FNPMoverState* NPState = SyncState.SyncStateCollection.FindDataByType<FNPMoverState>();
+		if (NPState)
+		{
+			return NPState->MaxSP;
+		}
+	}
 	return MaxSP;
 }
 
 bool UNPStaminaComponent::TryConsumeSP(float Amount)
 {
-	if (CurrentSP >= Amount)
+	if (GetCurrentSP() >= Amount)
 	{
 		ConsumeSP(Amount);
 		return true;
@@ -69,38 +74,41 @@ bool UNPStaminaComponent::TryConsumeSP(float Amount)
 
 void UNPStaminaComponent::ConsumeSP(float Amount)
 {
-	const float OldSP = CurrentSP;
-	CurrentSP = FMath::Max(0.f, CurrentSP - Amount);
-	RegenDelayRemaining = RegenDelay;
+	PendingAbilitySPCost += Amount;
 
-	if (!FMath::IsNearlyEqual(OldSP, CurrentSP))
-	{
-		OnStaminaChanged.Broadcast(CurrentSP, MaxSP);
-	}
+	// Fire delegate immediately for responsive UI
+	const float EffectiveSP = GetCurrentSP();
+	OnStaminaChanged.Broadcast(EffectiveSP, GetMaxSP());
 }
 
 void UNPStaminaComponent::RestoreSP(float Amount)
 {
-	const float OldSP = CurrentSP;
-	CurrentSP = FMath::Min(CurrentSP + Amount, MaxSP);
+	// Negative cost = restore
+	PendingAbilitySPCost -= Amount;
 
-	if (!FMath::IsNearlyEqual(OldSP, CurrentSP))
-	{
-		OnStaminaChanged.Broadcast(CurrentSP, MaxSP);
-	}
+	const float EffectiveSP = GetCurrentSP();
+	OnStaminaChanged.Broadcast(EffectiveSP, GetMaxSP());
 }
 
 float UNPStaminaComponent::GetStaminaPercent() const
 {
-	return MaxSP > 0.f ? CurrentSP / MaxSP : 0.f;
+	const float Max = GetMaxSP();
+	return Max > 0.f ? GetCurrentSP() / Max : 0.f;
 }
 
-void UNPStaminaComponent::NotifyConsumption()
+float UNPStaminaComponent::FlushPendingAbilitySPCost()
 {
-	RegenDelayRemaining = RegenDelay;
+	const float Cost = FMath::Max(0.f, PendingAbilitySPCost);
+	PendingAbilitySPCost = 0.f;
+	return Cost;
 }
 
-void UNPStaminaComponent::OnRep_CurrentSP()
+void UNPStaminaComponent::OnMoverPostSimulationTick(const FMoverTimeStep& TimeStep)
 {
-	OnStaminaChanged.Broadcast(CurrentSP, MaxSP);
+	const float CurrentSP = GetCurrentSP();
+	if (!FMath::IsNearlyEqual(CurrentSP, LastBroadcastSP, 0.1f))
+	{
+		LastBroadcastSP = CurrentSP;
+		OnStaminaChanged.Broadcast(CurrentSP, GetMaxSP());
+	}
 }

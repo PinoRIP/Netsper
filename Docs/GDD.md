@@ -1,5 +1,5 @@
 # Game Design Document
-## Project Title (Working Title): Novector
+## Project Title (Working Title): Netsper
 
 ---
 
