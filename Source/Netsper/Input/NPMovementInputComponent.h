@@ -5,6 +5,7 @@
 #include "MoverSimulationTypes.h"
 #include "NPMovementInputComponent.generated.h"
 
+class INPMovementController;
 class UInputAction;
 class UInputMappingContext;
 class UEnhancedInputComponent;
@@ -26,9 +27,6 @@ public:
 
 	/** Called by the pawn to set up Enhanced Input bindings */
 	void SetupInputBindings(UEnhancedInputComponent* EIC);
-
-	/** Called by ANPCharacterPawn::ProduceInput to fill the Mover input command */
-	void ProduceInput(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult);
 
 	// Input Actions (assigned in Blueprint/Editor)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input|Actions")
@@ -75,6 +73,11 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+	UPROPERTY()
+	TScriptInterface<INPMovementController> MovementController;
+	
+	TScriptInterface<INPMovementController> GetMovementController();
+	
 	// Enhanced Input callbacks — accumulate into frame cache
 	void OnMoveTriggered(const FInputActionValue& Value);
 	void OnMoveCompleted(const FInputActionValue& Value);
@@ -86,18 +89,4 @@ private:
 	void OnCrouchStarted(const FInputActionValue& Value);
 	void OnCrouchReleased(const FInputActionValue& Value);
 	void OnDodgeStarted(const FInputActionValue& Value);
-	void OnMantleStarted(const FInputActionValue& Value);
-	void OnAbilityStarted(const FInputActionValue& Value);
-
-	// Frame-local input cache (gathered at frame rate, consumed at sim rate)
-	FVector2D CachedMoveInput = FVector2D::ZeroVector;
-	FVector2D CachedLookDelta = FVector2D::ZeroVector;
-
-	bool bJumpPressed = false;
-	bool bJumpHeld = false;
-	bool bSprintHeld = false;
-	bool bCrouchHeld = false;
-	bool bDodgePressed = false;
-	bool bMantlePressed = false;
-	bool bAbilityPressed = false;
 };

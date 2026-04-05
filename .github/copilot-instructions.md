@@ -216,3 +216,9 @@ OnHealthChanged.Broadcast(CurrentHealth, -DamageAmount);
 - Comments explain *why*, not *what*.
 - Use `// TODO(NP):` for known work items.
 - Use `// HACK:` for temporary workarounds that must be revisited.
+
+# Running the project
+
+At the end of adding changes make sure the project compiles and runs. You can run the project by launching the Unreal Editor executable with the project file as an argument, like this:
+
+& "D:\Epic\Unreal\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "D:\ProjectRepos\Netsper\Netsper.uproject" -game -nullrhi -unattended -nosplash -nocrashdialog -stdout -FullStdOutLogOutput -forcelogflush -ExecCmds="Automation RunTests Project.Startup" -testexit="Automation Test Queue Empty"

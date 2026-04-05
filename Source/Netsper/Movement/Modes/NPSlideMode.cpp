@@ -5,7 +5,6 @@
 #include "MoveLibrary/FloorQueryUtils.h"
 #include "MoveLibrary/MoverBlackboard.h"
 #include "Movement/NPMoverTypes.h"
-#include "Netsper.h"
 
 void UNPSlideMode::OnRegistered(const FName ModeName)
 {
@@ -109,15 +108,6 @@ void UNPSlideMode::SimulationTick_Implementation(const FSimulationTickParams& Pa
 		}
 	}
 
-	// SP-extended slide: reduced friction if sprinting with SP
-	const bool bWantsSprint = NPInput ? NPInput->bWantsSprint : false;
-	if (bWantsSprint && OutNPState.CurrentSP > 0.f)
-	{
-		EffectiveFriction *= 0.3f;
-		OutNPState.CurrentSP = FMath::Max(0.f, OutNPState.CurrentSP - ExtendedSlideSPCost * DeltaSeconds);
-		NPStaminaUtils::NotifyConsumption(OutNPState);
-	}
-
 	// Apply friction
 	const float Speed = HorizontalVelocity.Size();
 	if (Speed > 0.f)
@@ -149,7 +139,7 @@ void UNPSlideMode::SimulationTick_Implementation(const FSimulationTickParams& Pa
 
 	// Exit conditions
 	const float HorizSpeed = FVector(NewVelocity.X, NewVelocity.Y, 0.f).Size();
-	const bool bCrouchHeld = NPInput ? NPInput->bWantsCrouch : false;
+	const bool bCrouchHeld = NPInput ? NPInput->bWantsToCrouch : false;
 
 	// Released crouch and slow enough → back to ground
 	if (!bCrouchHeld && HorizSpeed < MaxWalkSpeed)

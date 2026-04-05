@@ -17,6 +17,14 @@ enum class ENPMovementState : uint8
 	Mantle    UMETA(DisplayName = "Mantle"),
 };
 
+UENUM(BlueprintType)
+enum class ENPDodgeDirection : uint8
+{
+	None  UMETA(DisplayName = "None"),
+	Left  UMETA(DisplayName = "Left"),
+	Right UMETA(DisplayName = "Right"),
+};
+
 // -----------------------------------------------
 // FNPMoverInputCmd — Custom input data for Mover
 // Added alongside FCharacterDefaultInputs in ProduceInput
@@ -28,25 +36,13 @@ struct NETSPER_API FNPMoverInputCmd : public FMoverDataStructBase
 	GENERATED_BODY()
 
 	UPROPERTY()
-	bool bWantsSprint = false;
+	bool bWantsToSprint = false;
 
 	UPROPERTY()
-	bool bWantsCrouch = false;
+	bool bWantsToCrouch = false;
 
 	UPROPERTY()
-	bool bWantsDodge = false;
-
-	UPROPERTY()
-	bool bWantsMantle = false;
-
-	UPROPERTY()
-	bool bWantsAbility = false;
-
-	UPROPERTY()
-	bool bCancelAbility = false;
-
-	UPROPERTY()
-	uint8 RequestedAbilitySlot = 0;
+	ENPDodgeDirection WantsToDodgeDirection = ENPDodgeDirection::None;
 
 	// FMoverDataStructBase overrides
 	virtual FMoverDataStructBase* Clone() const override;

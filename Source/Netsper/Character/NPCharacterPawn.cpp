@@ -21,6 +21,8 @@
 #include "Netsper.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "NPCharacterMoverNetworkPredictionLiaisonComponent.h"
+#include "NPCharacterNetworkPredictionComponent.h"
 
 ANPCharacterPawn::ANPCharacterPawn(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -71,10 +73,8 @@ ANPCharacterPawn::ANPCharacterPawn(const FObjectInitializer& ObjectInitializer)
 	MoverComponent->SetUpdatedComponent(CapsuleComp);
 	MoverComponent->SetIsReplicated(true);
 	MoverComponent->StartingMovementMode = NPMovementModeNames::Ground;
-
-	// NOTE: Movement modes are registered in PostInitializeComponents,
-	// after MoverComponent::InitializeComponent has created ModeFSM.
-
+	MoverComponent->BackendClass = UNPCharacterMoverNetworkPredictionLiaisonComponent::StaticClass();
+	
 	// Input component
 	MovementInputComponent = CreateDefaultSubobject<UNPMovementInputComponent>(TEXT("MovementInputComponent"));
 
@@ -92,6 +92,9 @@ ANPCharacterPawn::ANPCharacterPawn(const FObjectInitializer& ObjectInitializer)
 
 	// Camera effects
 	CameraEffectsComponent = CreateDefaultSubobject<UNPCameraComponent>(TEXT("CameraEffectsComponent"));
+	
+	// Network
+	NetworkPredictionComponent = CreateDefaultSubobject<UNPCharacterNetworkPredictionComponent>(TEXT("NetworkPredictionComponent"));
 }
 
 void ANPCharacterPawn::PostInitializeComponents()
@@ -113,14 +116,6 @@ void ANPCharacterPawn::PostInitializeComponents()
 void ANPCharacterPawn::BeginPlay()
 {
 	Super::BeginPlay();
-}
-
-void ANPCharacterPawn::ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult)
-{
-	if (IsValid(MovementInputComponent))
-	{
-		MovementInputComponent->ProduceInput(SimTimeMs, InputCmdResult);
-	}
 }
 
 void ANPCharacterPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)

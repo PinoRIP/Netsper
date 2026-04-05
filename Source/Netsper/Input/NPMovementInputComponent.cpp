@@ -2,10 +2,9 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
-#include "MoverDataModelTypes.h"
 #include "Movement/NPMoverTypes.h"
 #include "GameFramework/PlayerController.h"
-#include "Netsper.h"
+#include "Movement/Input/NPMovementController.h"
 
 UNPMovementInputComponent::UNPMovementInputComponent()
 {
@@ -86,128 +85,102 @@ void UNPMovementInputComponent::SetupInputBindings(UEnhancedInputComponent* EIC)
 	{
 		EIC->BindAction(IA_Dodge, ETriggerEvent::Started, this, &UNPMovementInputComponent::OnDodgeStarted);
 	}
-
-	if (IsValid(IA_Mantle))
-	{
-		EIC->BindAction(IA_Mantle, ETriggerEvent::Started, this, &UNPMovementInputComponent::OnMantleStarted);
-	}
-
-	if (IsValid(IA_Ability))
-	{
-		EIC->BindAction(IA_Ability, ETriggerEvent::Started, this, &UNPMovementInputComponent::OnAbilityStarted);
-	}
 }
 
-void UNPMovementInputComponent::ProduceInput(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult)
+
+TScriptInterface<INPMovementController> UNPMovementInputComponent::GetMovementController()
 {
-	APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	if (!IsValid(OwnerPawn))
+	if (!MovementController)
 	{
-		return;
+		UActorComponent* Component = GetOwner()->FindComponentByInterface(INPMovementController::UClassType::StaticClass());
+		if (INPMovementController* InterfacePointer = Cast<INPMovementController>(Component))
+		{
+			MovementController = TScriptInterface<INPMovementController>();
+			MovementController.SetInterface(InterfacePointer);
+			MovementController.SetObject(Component);
+		}
 	}
-
-	// Build default character inputs (consumed by standard Mover modes)
-	FCharacterDefaultInputs& DefaultInputs = InputCmdResult.InputCollection.FindOrAddMutableDataByType<FCharacterDefaultInputs>();
-
-	// Compute world-space move direction from camera-relative input
-	const FRotator ControlRot = OwnerPawn->GetControlRotation();
-	const FRotator YawOnlyRot(0.f, ControlRot.Yaw, 0.f);
-	const FVector ForwardDir = FRotationMatrix(YawOnlyRot).GetUnitAxis(EAxis::X);
-	const FVector RightDir = FRotationMatrix(YawOnlyRot).GetUnitAxis(EAxis::Y);
-
-	FVector MoveDirection = ForwardDir * CachedMoveInput.Y + RightDir * CachedMoveInput.X;
-	if (!MoveDirection.IsNearlyZero())
-	{
-		MoveDirection.Normalize();
-	}
-
-	DefaultInputs.SetMoveInput(EMoveInputType::DirectionalIntent, MoveDirection);
-	DefaultInputs.ControlRotation = ControlRot;
-	DefaultInputs.OrientationIntent = ForwardDir;
-	DefaultInputs.bIsJumpJustPressed = bJumpPressed;
-	DefaultInputs.bIsJumpPressed = bJumpHeld;
-
-	// Build custom NP inputs
-	FNPMoverInputCmd& NPInputs = InputCmdResult.InputCollection.FindOrAddMutableDataByType<FNPMoverInputCmd>();
-	NPInputs.bWantsSprint = bSprintHeld;
-	NPInputs.bWantsCrouch = bCrouchHeld;
-	NPInputs.bWantsDodge = bDodgePressed;
-	NPInputs.bWantsMantle = bMantlePressed;
-	NPInputs.bWantsAbility = bAbilityPressed;
-
-	// Clear one-shot flags (consumed per sim tick, not per frame)
-	bJumpPressed = false;
-	bDodgePressed = false;
-	bMantlePressed = false;
-	bAbilityPressed = false;
+	
+	return MovementController;
 }
-
-// Input callbacks
 
 void UNPMovementInputComponent::OnMoveTriggered(const FInputActionValue& Value)
 {
-	CachedMoveInput = Value.Get<FVector2D>();
+	if (TScriptInterface<INPMovementController> Controller = GetMovementController())
+	{
+		Controller->SetMoveDirection(Value.Get<FVector2D>());
+	}
 }
 
 void UNPMovementInputComponent::OnMoveCompleted(const FInputActionValue& Value)
 {
-	CachedMoveInput = FVector2D::ZeroVector;
+	if (TScriptInterface<INPMovementController> Controller = GetMovementController())
+	{
+		Controller->SetMoveDirection(FVector2D::ZeroVector);
+	}
 }
 
 void UNPMovementInputComponent::OnLookTriggered(const FInputActionValue& Value)
 {
-	CachedLookDelta = Value.Get<FVector2D>();
-
-	APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	if (IsValid(OwnerPawn))
+	if (TScriptInterface<INPMovementController> Controller = GetMovementController())
 	{
-		OwnerPawn->AddControllerYawInput(CachedLookDelta.X);
-		OwnerPawn->AddControllerPitchInput(CachedLookDelta.Y);
+		Controller->SetLookDirection(Value.Get<FVector2D>());
 	}
 }
 
 void UNPMovementInputComponent::OnJumpStarted(const FInputActionValue& Value)
 {
-	bJumpPressed = true;
-	bJumpHeld = true;
+	if (TScriptInterface<INPMovementController> Controller = GetMovementController())
+	{
+		Controller->SetWantsToJump(true);
+	}
 }
 
 void UNPMovementInputComponent::OnJumpReleased(const FInputActionValue& Value)
 {
-	bJumpHeld = false;
+	if (TScriptInterface<INPMovementController> Controller = GetMovementController())
+	{
+		Controller->SetWantsToJump(false);
+	}
 }
 
 void UNPMovementInputComponent::OnSprintStarted(const FInputActionValue& Value)
 {
-	bSprintHeld = true;
+	if (TScriptInterface<INPMovementController> Controller = GetMovementController())
+	{
+		Controller->SetWantsToSprint(true);
+	}
 }
 
 void UNPMovementInputComponent::OnSprintReleased(const FInputActionValue& Value)
 {
-	bSprintHeld = false;
+	if (TScriptInterface<INPMovementController> Controller = GetMovementController())
+	{
+		Controller->SetWantsToSprint(false);
+	}
 }
 
 void UNPMovementInputComponent::OnCrouchStarted(const FInputActionValue& Value)
 {
-	bCrouchHeld = true;
+	if (TScriptInterface<INPMovementController> Controller = GetMovementController())
+	{
+		Controller->SetWantsToCrouch(true);
+	}
 }
 
 void UNPMovementInputComponent::OnCrouchReleased(const FInputActionValue& Value)
 {
-	bCrouchHeld = false;
+	if (TScriptInterface<INPMovementController> Controller = GetMovementController())
+	{
+		Controller->SetWantsToCrouch(false);
+	}
 }
 
 void UNPMovementInputComponent::OnDodgeStarted(const FInputActionValue& Value)
 {
-	bDodgePressed = true;
-}
-
-void UNPMovementInputComponent::OnMantleStarted(const FInputActionValue& Value)
-{
-	bMantlePressed = true;
-}
-
-void UNPMovementInputComponent::OnAbilityStarted(const FInputActionValue& Value)
-{
-	bAbilityPressed = true;
+	// TODO: Dodging directions
+	if (TScriptInterface<INPMovementController> Controller = GetMovementController())
+	{
+		Controller->SetWantsToDodge(ENPDodgeDirection::Left);
+	}
 }

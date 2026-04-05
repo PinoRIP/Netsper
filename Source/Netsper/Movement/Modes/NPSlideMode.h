@@ -32,9 +32,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slide|Tuning")
 	float UphillFrictionScale = 3.f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slide|Stamina")
-	float ExtendedSlideSPCost = 20.f;
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Slide|Tuning")
 	float CrouchHalfHeight = 30.f;
 

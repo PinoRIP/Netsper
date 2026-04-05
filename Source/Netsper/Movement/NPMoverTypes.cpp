@@ -16,25 +16,17 @@ bool FNPMoverInputCmd::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSu
 	uint8 Bits = 0;
 	if (Ar.IsSaving())
 	{
-		Bits |= bWantsSprint ? (1 << 0) : 0;
-		Bits |= bWantsCrouch ? (1 << 1) : 0;
-		Bits |= bWantsDodge ? (1 << 2) : 0;
-		Bits |= bWantsMantle ? (1 << 3) : 0;
-		Bits |= bWantsAbility ? (1 << 4) : 0;
-		Bits |= bCancelAbility ? (1 << 5) : 0;
+		Bits |= bWantsToSprint ? (1 << 0) : 0;
+		Bits |= bWantsToCrouch ? (1 << 1) : 0;
 	}
 
 	Ar << Bits;
-	Ar << RequestedAbilitySlot;
+	Ar << WantsToDodgeDirection;
 
 	if (Ar.IsLoading())
 	{
-		bWantsSprint = (Bits & (1 << 0)) != 0;
-		bWantsCrouch = (Bits & (1 << 1)) != 0;
-		bWantsDodge = (Bits & (1 << 2)) != 0;
-		bWantsMantle = (Bits & (1 << 3)) != 0;
-		bWantsAbility = (Bits & (1 << 4)) != 0;
-		bCancelAbility = (Bits & (1 << 5)) != 0;
+		bWantsToSprint = (Bits & (1 << 0)) != 0;
+		bWantsToCrouch = (Bits & (1 << 1)) != 0;
 	}
 
 	bOutSuccess = true;
@@ -48,8 +40,7 @@ UScriptStruct* FNPMoverInputCmd::GetScriptStruct() const
 
 void FNPMoverInputCmd::ToString(FAnsiStringBuilderBase& Out) const
 {
-	Out.Appendf("NPInput: Sprint=%d Crouch=%d Dodge=%d Mantle=%d",
-		bWantsSprint, bWantsCrouch, bWantsDodge, bWantsMantle);
+	Out.Appendf("NPInput: Sprint=%d Crouch=%d Dodge=%d", bWantsToSprint, bWantsToCrouch, WantsToDodgeDirection);
 }
 
 // -----------------------------------------------

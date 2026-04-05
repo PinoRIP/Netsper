@@ -5,6 +5,7 @@
 #include "MoverSimulationTypes.h"
 #include "NPCharacterPawn.generated.h"
 
+class UNPCharacterNetworkPredictionComponent;
 class UCapsuleComponent;
 class USkeletalMeshComponent;
 class USpringArmComponent;
@@ -25,15 +26,12 @@ class UNPCameraComponent;
  * Uses Mover 2.0 (NPP backend) for movement.
  */
 UCLASS()
-class NETSPER_API ANPCharacterPawn : public APawn, public IMoverInputProducerInterface
+class NETSPER_API ANPCharacterPawn : public APawn
 {
 	GENERATED_BODY()
 
 public:
 	ANPCharacterPawn(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-
-	// IMoverInputProducerInterface
-	virtual void ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult) override;
 
 	// APawn overrides
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
@@ -107,4 +105,8 @@ protected:
 	// Camera effects
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UNPCameraComponent> CameraEffectsComponent;
+	
+	// Network
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NetworkPrediction")
+	TObjectPtr<UNPCharacterNetworkPredictionComponent> NetworkPredictionComponent;
 };

@@ -106,8 +106,8 @@ void UNPGroundMovementMode::SimulationTick_Implementation(const FSimulationTickP
 	NPStaminaUtils::TickSPFromComponent(OutNPState, UpdatedComponent, DeltaSeconds);
 
 	// Determine sub-state
-	const bool bWantsSprint = NPInput ? NPInput->bWantsSprint : false;
-	const bool bWantsCrouch = NPInput ? NPInput->bWantsCrouch : false;
+	const bool bWantsSprint = NPInput ? NPInput->bWantsToSprint : false;
+	const bool bWantsCrouch = NPInput ? NPInput->bWantsToCrouch : false;
 	const bool bHasStamina = OutNPState.CurrentSP > 0.f;
 
 	// Update crouch state
@@ -237,12 +237,12 @@ float UNPGroundMovementMode::GetTargetSpeed(const FNPMoverInputCmd* NPInput, con
 		return MaxWalkSpeed;
 	}
 
-	if (NPInput->bWantsCrouch)
+	if (NPInput->bWantsToCrouch)
 	{
 		return MaxCrouchSpeed;
 	}
 
-	if (NPInput->bWantsSprint && NPState && NPState->CurrentSP > 0.f)
+	if (NPInput->bWantsToSprint && NPState && NPState->CurrentSP > 0.f)
 	{
 		return MaxSprintSpeed;
 	}
@@ -252,7 +252,7 @@ float UNPGroundMovementMode::GetTargetSpeed(const FNPMoverInputCmd* NPInput, con
 
 float UNPGroundMovementMode::GetAcceleration(const FNPMoverInputCmd* NPInput) const
 {
-	if (NPInput && NPInput->bWantsSprint)
+	if (NPInput && NPInput->bWantsToSprint)
 	{
 		return SprintAcceleration;
 	}

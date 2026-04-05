@@ -3,7 +3,6 @@
 #include "MoverDataModelTypes.h"
 #include "MoveLibrary/MovementUtils.h"
 #include "Movement/NPMoverTypes.h"
-#include "Netsper.h"
 
 void UNPMantleMode::OnRegistered(const FName ModeName)
 {
@@ -98,7 +97,7 @@ void UNPMantleMode::SimulationTick_Implementation(const FSimulationTickParams& P
 	if (LedgeTopPosition.IsNearlyZero())
 	{
 		// SP-boost check
-		const bool bWantsSprint = NPInput ? NPInput->bWantsSprint : false;
+		const bool bWantsSprint = NPInput ? NPInput->bWantsToSprint : false;
 		if (bWantsSprint && OutNPState.CurrentSP >= SPBoostMantleCost)
 		{
 			// SP-boosted mantle: consume SP and launch upward

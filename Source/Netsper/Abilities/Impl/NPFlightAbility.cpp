@@ -26,8 +26,7 @@ void UNPFlightAbility::OnActivated(const FNPAbilityInputCmd& InputCmd, FNPAbilit
 	UE_LOG(LogNPAbility, Log, TEXT("Flight activated"));
 }
 
-void UNPFlightAbility::OnTick(int32 DeltaMs, FNPAbilitySyncState& SyncState,
-                              FNPAbilityAuxState& AuxState, UMoverComponent* MoverComp)
+void UNPFlightAbility::OnTick(int32 DeltaMs, FNPAbilitySyncState& SyncState, FNPAbilityAuxState& AuxState, UMoverComponent* MoverComp)
 {
 	const float DeltaSeconds = DeltaMs / 1000.f;
 
