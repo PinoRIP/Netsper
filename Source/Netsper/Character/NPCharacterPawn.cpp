@@ -72,13 +72,8 @@ ANPCharacterPawn::ANPCharacterPawn(const FObjectInitializer& ObjectInitializer)
 	MoverComponent->SetIsReplicated(true);
 	MoverComponent->StartingMovementMode = NPMovementModeNames::Ground;
 
-	// Register movement modes
-	MoverComponent->AddMovementModeFromClass(NPMovementModeNames::Ground, UNPGroundMovementMode::StaticClass());
-	MoverComponent->AddMovementModeFromClass(NPMovementModeNames::Air, UNPAirMovementMode::StaticClass());
-	MoverComponent->AddMovementModeFromClass(NPMovementModeNames::Slide, UNPSlideMode::StaticClass());
-	MoverComponent->AddMovementModeFromClass(NPMovementModeNames::WallRun, UNPWallRunMode::StaticClass());
-	MoverComponent->AddMovementModeFromClass(NPMovementModeNames::WallClimb, UNPWallClimbMode::StaticClass());
-	MoverComponent->AddMovementModeFromClass(NPMovementModeNames::Mantle, UNPMantleMode::StaticClass());
+	// NOTE: Movement modes are registered in PostInitializeComponents,
+	// after MoverComponent::InitializeComponent has created ModeFSM.
 
 	// Input component
 	MovementInputComponent = CreateDefaultSubobject<UNPMovementInputComponent>(TEXT("MovementInputComponent"));
@@ -97,6 +92,22 @@ ANPCharacterPawn::ANPCharacterPawn(const FObjectInitializer& ObjectInitializer)
 
 	// Camera effects
 	CameraEffectsComponent = CreateDefaultSubobject<UNPCameraComponent>(TEXT("CameraEffectsComponent"));
+}
+
+void ANPCharacterPawn::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	// Register movement modes now that MoverComponent::InitializeComponent has run
+	if (IsValid(MoverComponent))
+	{
+		MoverComponent->AddMovementModeFromClass(NPMovementModeNames::Ground, UNPGroundMovementMode::StaticClass());
+		MoverComponent->AddMovementModeFromClass(NPMovementModeNames::Air, UNPAirMovementMode::StaticClass());
+		MoverComponent->AddMovementModeFromClass(NPMovementModeNames::Slide, UNPSlideMode::StaticClass());
+		MoverComponent->AddMovementModeFromClass(NPMovementModeNames::WallRun, UNPWallRunMode::StaticClass());
+		MoverComponent->AddMovementModeFromClass(NPMovementModeNames::WallClimb, UNPWallClimbMode::StaticClass());
+		MoverComponent->AddMovementModeFromClass(NPMovementModeNames::Mantle, UNPMantleMode::StaticClass());
+	}
 }
 
 void ANPCharacterPawn::BeginPlay()

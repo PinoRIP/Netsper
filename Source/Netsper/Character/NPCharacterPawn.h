@@ -37,6 +37,7 @@ public:
 
 	// APawn overrides
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	virtual void PostInitializeComponents() override;
 	virtual FVector GetPawnViewLocation() const override;
 	virtual FRotator GetViewRotation() const override;
 
