@@ -3,4 +3,8 @@
 #include "Netsper.h"
 #include "Modules/ModuleManager.h"
 
-IMPLEMENT_PRIMARY_GAME_MODULE( FDefaultGameModuleImpl, Netsper, "Netsper" );
+DEFINE_LOG_CATEGORY(LogNP);
+DEFINE_LOG_CATEGORY(LogNPMovement);
+DEFINE_LOG_CATEGORY(LogNPAbility);
+
+IMPLEMENT_PRIMARY_GAME_MODULE(FDefaultGameModuleImpl, Netsper, "Netsper");
